@@ -111,6 +111,8 @@ class SpacedDiffusion(GaussianDiffusion):
 
 
 class _WrappedModel:
+    # timestep_map 新的时间序列
+    # original_num_steps 原始的时间步长，比如1000, 2000
     def __init__(self, model, timestep_map, rescale_timesteps, original_num_steps):
         self.model = model
         self.timestep_map = timestep_map
@@ -121,7 +123,8 @@ class _WrappedModel:
         # ts是连续的索引，map_tensor中包含的是scaling后的索引
         # __call__的作用是将ts映射到真正的spacing后的时间步骤
         map_tensor = th.tensor(self.timestep_map, device=ts.device, dtype=ts.dtype)
-        new_ts = map_tensor[ts]
+        new_ts = map_tensor[ts] # 将ts转化到原始的步长
         if self.rescale_timesteps:
+            # 始终控制new_ts在[0, 1000]以内的浮点数
             new_ts = new_ts.float() * (1000.0 / self.original_num_steps)
         return self.model(x, new_ts, **kwargs)
