@@ -70,19 +70,21 @@ class SpacedDiffusion(GaussianDiffusion):
     """
 
     def __init__(self, use_timesteps, **kwargs):
-        self.use_timesteps = set(use_timesteps)
-        self.timestep_map = []
+        self.use_timesteps = set(use_timesteps) # 指可以用的时间步，可能步长为1，也有可能步长大于1（respacing）
+        self.timestep_map = [] # 基本等同于use_timesteps，不过是列表
         self.original_num_steps = len(kwargs["betas"])
 
         base_diffusion = GaussianDiffusion(**kwargs)  # pylint: disable=missing-kwoa
         last_alpha_cumprod = 1.0
+        # 重新定义betas序列
         new_betas = []
         for i, alpha_cumprod in enumerate(base_diffusion.alphas_cumprod):
             if i in self.use_timesteps:
                 new_betas.append(1 - alpha_cumprod / last_alpha_cumprod)
                 last_alpha_cumprod = alpha_cumprod
                 self.timestep_map.append(i)
-        kwargs["betas"] = np.array(new_betas)
+        # 更新self.betas成员变量
+        kwargs["betas"] = np.array(new_betas) # 此处更新了betas
         super().__init__(**kwargs)
 
     # p是指神经网络预测的均值和方差
@@ -116,6 +118,8 @@ class _WrappedModel:
         self.original_num_steps = original_num_steps
 
     def __call__(self, x, ts, **kwargs):
+        # ts是连续的索引，map_tensor中包含的是scaling后的索引
+        # __call__的作用是将ts映射到真正的spacing后的时间步骤
         map_tensor = th.tensor(self.timestep_map, device=ts.device, dtype=ts.dtype)
         new_ts = map_tensor[ts]
         if self.rescale_timesteps:

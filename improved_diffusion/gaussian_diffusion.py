@@ -505,6 +505,7 @@ class GaussianDiffusion:
                 yield out
                 img = out["sample"]
 
+    # ddim 公式12
     def ddim_sample(
         self,
         model,
@@ -530,7 +531,7 @@ class GaussianDiffusion:
         )
         # Usually our model outputs epsilon, but we re-derive it
         # in case we used x_start or x_prev prediction.
-        eps = self._predict_eps_from_xstart(x, t, out["pred_xstart"])
+        eps = self._predict_eps_from_xstart(x, t, out["pred_xstart"]) # 根据公式推出eps（noise）
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
         alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
         sigma = (
@@ -547,6 +548,7 @@ class GaussianDiffusion:
         nonzero_mask = (
             (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
         )  # no noise when t == 0
+        # 这里mask的作用是当t不等于0的时候需要有噪音这一项，当t等于0的时候，就不需要噪声noise了，也就是ddim。
         sample = mean_pred + nonzero_mask * sigma * noise
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
 
@@ -734,6 +736,7 @@ class GaussianDiffusion:
 
         terms = {}
 
+        # 判断loss类型
         if self.loss_type == LossType.KL or self.loss_type == LossType.RESCALED_KL:
             terms["loss"] = self._vb_terms_bpd(
                 model=model,
@@ -772,6 +775,7 @@ class GaussianDiffusion:
                     # Without a factor of 1/1000, the VB term hurts the MSE term.
                     terms["vb"] *= self.num_timesteps / 1000.0
 
+            # previous_x就是预测的均值，一般预测noise
             target = {
                 ModelMeanType.PREVIOUS_X: self.q_posterior_mean_variance(
                     x_start=x_start, x_t=x_t, t=t
